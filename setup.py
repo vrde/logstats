@@ -7,13 +7,22 @@ here = path.abspath(path.dirname(__file__))
 # Get the long description from the README file
 with open(path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
+try:
+    from pypandoc import convert
+    read_md = lambda f: convert(f, 'rst')
+except ImportError:
+    import warnings
+    warnings.warn('warning: pypandoc module not found, could not convert Markdown to RST')
+    read_md = lambda f: open(f, 'r').read()
+
+
 
 setup(
     name='logstats',
     version='0.1.0',
 
     description='A module to collect and display stats for long running processes',
-    long_description=long_description,
+    long_description=read_md('README.md'),
 
     url='https://github.com/vrde/logstats',
 
