@@ -19,7 +19,7 @@ except ImportError:
 
 setup(
     name='logstats',
-    version='0.1.0',
+    version='0.1.1',
 
     description='A module to collect and display stats for long running processes',
     long_description=read_md('README.md'),

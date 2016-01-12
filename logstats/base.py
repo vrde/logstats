@@ -43,6 +43,8 @@ class Logstats(object):
         self.old_stats = {}
         self.emit_func = emit_func
         self.last = current_milli_time()
+        if not log.isEnabledFor(logging.getLevelName(level)):
+            log.warning('Logger is not enabled to log at level {}.'.format(level))
 
     def _get_speed(self, new, old, delta):
         return int(round(float((new - old)) / (delta / 1e3)))
