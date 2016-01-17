@@ -2,6 +2,10 @@
 
 import logging
 import time
+import multiprocessing as mp
+import queue
+from collections import Counter
+
 
 log = logging.getLogger(__name__)
 current_milli_time = lambda: int(round(time.time() * 1000))
@@ -21,7 +25,8 @@ class Logstats(object):
     to a generic output (`log`, by default).
     '''
 
-    def __init__(self, stats, msg=None, emit_func=None, logger=log, level='INFO'):
+    def __init__(self, msg=None, emit_func=None, logger=log, level='INFO',
+                 timeout=1, queue=None):
         '''Initialize the instance.
 
         If `emit_func` is defined, `logger` and `level` are ignored.
@@ -36,20 +41,42 @@ class Logstats(object):
             a `log` instance
         level -- the log level (default: INFO)
         '''
-        self.stats = stats
+        self.stats = Counter()
         self.msg = msg
         self.logger = logger
         self.level = level
         self.old_stats = {}
         self.emit_func = emit_func
         self.last = current_milli_time()
+        self.timeout = timeout
+        self.queue = queue
+        self.main_queue = None
+
         if not log.isEnabledFor(logging.getLevelName(level)):
             log.warning('Logger is not enabled to log at level {}.'.format(level))
 
+    def __getitem__(self, key):
+        return self.stats[key]
+
+    def __setitem__(self, key, val):
+        self.stats[key] = val
+
+    def update(self, *args, **kwargs):
+        self.stats.update(*args, **kwargs)
+
     def _get_speed(self, new, old, delta):
         return int(round(float((new - old)) / (delta / 1e3)))
+    
+    def _consume_queue(self):
+        if self.main_queue:
+            while True:
+                try:
+                    self.stats.update(self.main_queue.get_nowait())
+                except queue.Empty:
+                    return
 
     def get_stats(self, delta):
+        self._consume_queue()
         stats = self.stats
 
         if hasattr(self.stats, '__call__'):
@@ -67,6 +94,12 @@ class Logstats(object):
         stats.update(speed)
         return stats
 
+    def get_child(self):
+        if not self.main_queue:
+            self.main_queue = mp.Queue()
+
+        return Logstats(queue=self.main_queue)
+
     def format_msg(self, stats):
         if self.msg:
             msg = self.msg.format(**stats)
@@ -82,10 +115,14 @@ class Logstats(object):
             self.logger.log(getattr(logging, self.level), msg)
 
     def __call__(self):
-        delta = current_milli_time() - self.last
-        stats = self.get_stats(delta)
+        if self.queue:
+            self.queue.put(self.stats)
+            self.stats = Counter()
+        else:
+            delta = current_milli_time() - self.last
+            stats = self.get_stats(delta)
 
-        if stats:
-            self.emit(self.format_msg(stats))
+            if stats:
+                self.emit(self.format_msg(stats))
 
-        self.last = current_milli_time()
+            self.last = current_milli_time()
