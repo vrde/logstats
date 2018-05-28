@@ -52,8 +52,8 @@ class Logstats(object):
         self.queue = queue
         self.main_queue = None
 
-        if not log.isEnabledFor(logging.getLevelName(level)):
-            log.warning('Logger is not enabled to log at level {}.'.format(level))
+        if not logger.isEnabledFor(logging.getLevelName(level)):
+            logger.warning('Logger is not enabled to log at level {}.'.format(level))
 
     def __getitem__(self, key):
         return self.stats[key]
@@ -66,7 +66,7 @@ class Logstats(object):
 
     def _get_speed(self, new, old, delta):
         return int(round(float((new - old)) / (delta / 1e3)))
-    
+
     def _consume_queue(self):
         if self.main_queue:
             while True:
